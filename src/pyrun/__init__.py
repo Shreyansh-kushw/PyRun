@@ -57,8 +57,10 @@ def main():
     "instructions": [("LOAD_VALUE", 0),  # the first number
                      ("LOAD_VALUE", 1),  # the second number
                      ("ADD_TWO_VALUES", None),
+                     ("LOAD_VALUE", 2),
+                     ("ADD_TWO_VALUES", None),
                      ("PRINT_ANSWER", None)],
-    "numbers": [7, 5] }
+    "numbers": [7, 5, 10] }
     )
 
 """
