@@ -77,38 +77,30 @@ class Interpreter:
         # instruction need to operate on.
 
     # Now we just need one more thing, something to tie everything together and run the code.
-
-    def run_code(self, what_to_execute):
-        """Takes in the instructions and executes them"""
+    
+    def execute(self, what_to_execute):
+        """Executes the intructions"""
 
         instructions = what_to_execute["instructions"]
         numbers = what_to_execute["numbers"]
 
-        for each_step in instructions: # here we can see that instructions are executed one by one - thus its an interpreter
+        for each_step in instructions: 
             instruction, argument = each_step
             argument = self.parse_arguments(instruction, argument, what_to_execute)
 
-            if instruction == "LOAD_VALUE":
-                self.LOAD_VALUE(argument)
-            
-            elif instruction == "STORE_NAME":
-                self.STORE_NAME(argument)
-            
-            elif instruction == "LOAD_NAME":
-                self.LOAD_NAME(argument)
+            bytecode_method = getattr(self, instruction)
 
-            elif instruction == "ADD_TWO_VALUES":
-                self.ADD_TWO_VALUES()
-            
-            elif instruction == "PRINT_ANSWER":
-                self.PRINT_ANSWER()
+            if argument is None:
+                bytecode_method()
+            else:
+                bytecode_method(argument)
 
 def main():
     """Running the interpreter"""
     global Interpreter
 
     Interpreter = Interpreter()
-    Interpreter.run_code(
+    Interpreter.execute(
         what_to_execute = {
         "instructions": [("LOAD_VALUE", 0),
                          ("STORE_NAME", 0),
