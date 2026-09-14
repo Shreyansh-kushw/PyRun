@@ -15,7 +15,46 @@ class VirtualMachine:
 
         frame = self.make_frame(code, global_names, local_names)
         self.run_frame(frame)
+    
+    # Frame manipulation
+    def make_frame(self, code, callargs = {}, global_names = None, local_names = None):
+        """Creates a new frame"""
 
+        if global_names is not None and local_names is not None:
+            local_names = global_names
+        elif self.frames:
+            global_names = self.frame.global_names
+            local_names = {}
+        else:
+            global_names = local_names = {
+                '__builtins__' : __builtins__,
+                '__name__' : '__main__',
+                '__docs__' : None,
+                '__package__' : None,
+            }
+        local_names.update(callargs)
+        frame = Frame(code, global_names, local_names, self.frame)
+        return frame
+
+    def push_frame(self, frame):
+        """Pushes a frame into the call stack"""
+
+        self.frames.append(frame)
+        self.frame = frame
+    
+    def pop_frame(self):
+        """Removes a frame from the call stack"""
+
+        self.frame.pop()
+
+        if self.frames:
+            self.frame = self.frames[-1]
+        
+        else: 
+            self.frame = None
+    
+    def run_frame(self):
+        ...
 
 class Frame:
     """The frame class containing the various attributes of the code object"""
