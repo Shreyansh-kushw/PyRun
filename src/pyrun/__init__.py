@@ -251,6 +251,15 @@ class VirtualMachine:
             exctype, value, tb = self.last_exeption
             self.push(exctype, value, tb)
             self.push(exctype, value, tb)
+            '''
+            here we need to push the exceptions twice to the data stack because the virtual machine requires two sets ot it
+            one for exception matching, when we do -
+            >>> except Exception as e:
+            it needs a set to match the caught exception with the specified one.
+
+            And other set is used to set the self.last_exception in the virtual machine
+
+            '''
 
             why = None # exception is already outsourced to the exception handler so nothing more to worry about here.
             self.jump(block.handler) # jumping to the exception handler.
@@ -360,7 +369,7 @@ class VirtualMachine:
         lambda x, y: x not in y,
         lambda x, y: x is y,
         lambda x, y: x is not y,
-        lambda x, y: issubclass(x, Exception) and issubclass(x, y),
+        lambda x, y: issubclass(x, Exception) and issubclass(x, y), # used for exception matching
     ]
 
     def byte_COMPARE_OP(self, opnum):
@@ -372,7 +381,7 @@ class VirtualMachine:
         'NEGATIVE' : operator.neg,
         'NOT' : operator.not_,
         'CONVERT' : repr,
-        'INVERT' : operator.invert,
+        'INVERT' : operator.invert, # equivalent of bitwaise not operator.
     }
 
     def unaryOperator(self, op):
@@ -390,8 +399,45 @@ class VirtualMachine:
         val, obj = self.popn(2)
         setattr(obj, name, val) # object to set the attribute on, the attribute name, the attribute value
 
+    ## Building
+
+    def byte_BUILD_LIST(self, count):
+        elements = self.popn(count) # returns a list
+        self.push(elements) # pushing the list back in
     
-        
+    def byte_BUILD_MAP(self, size): # size is the expected size of the dict, the bytecode provides it but we dont use it here.
+        self.push({}) # pushing an empty dictionary.
+
+    def byte_STORE_MAP(self):
+        the_map, val, key = self.popn(3) # order is imp.
+        the_map[key] = val
+        self.push(the_map)
+    
+    def byte_STORE_APPEND(self, count): # count - how far down in the stack is the list i want to append to
+        # the value of count it would receive would account for the popping of the value
+        val = self.pop()
+        the_list = self.frame.stack[-count]
+        the_list.append(val)
+        self.push(the_list)
+
+    ## Jumps
+
+    def byte_JUMP_FORWARD(self, jump):
+        self.jump(jump)
+    
+    def byte_JUMP_ABSOLUTE(self, jump):
+        self.jump(jump)
+    
+    def byte_POP_JUMP_IF_TRUE(self, jump):
+        val = self.pop()
+        if val:
+            self.jump(jump)
+    
+    def byte_POP_JUMP_IF_FALSE(self, jump):
+        val = self.pop()
+        if not val:
+            self,jump(jump)
+
 class Frame:
     """The frame class containing the various attributes of the code object"""
 
