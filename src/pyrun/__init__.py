@@ -348,7 +348,24 @@ class VirtualMachine:
         x, y = self.popn(2) # getting the top 2 values to operate on
         self.push(self.BINARY_OPERATORS[op](x,y))
     
-    
+
+    COMPARE_OPERATORS = [
+        operator.lt,
+        operator.le,
+        operator.eq,
+        operator.ne,
+        operator.gt,
+        operator.ge,
+        lambda x, y: x in y,
+        lambda x, y: x not in y,
+        lambda x, y: x is y,
+        lambda x, y: x is not y,
+        lambda x, y: issubclass(x, Exception) and issubclass(x, y),
+    ]
+
+    def byte_COMPARE_OP(self, opnum):
+        x, y = self.popn(2)
+        self.push(self.COMPARE_OPERATORS[opnum](x, y))
         
 class Frame:
     """The frame class containing the various attributes of the code object"""
