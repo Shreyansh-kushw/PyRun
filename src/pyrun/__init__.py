@@ -378,6 +378,19 @@ class VirtualMachine:
     def unaryOperator(self, op):
         x = self.pop()
         self.push(self.UNARY_OPERATORS[op](x))
+
+    ## Attributes and indexing
+    
+    def byte_LOAD_ATTR(self, attr):
+        obj = self.pop()
+        va; = getattr(obj, attr)
+        self.push(val)
+    
+    def byte_STORE_ATTR(self, name):
+        val, obj = self.popn(2)
+        setattr(obj, name, val) # object to set the attribute on, the attribute name, the attribute value
+
+    
         
 class Frame:
     """The frame class containing the various attributes of the code object"""
