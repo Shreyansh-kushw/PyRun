@@ -366,6 +366,18 @@ class VirtualMachine:
     def byte_COMPARE_OP(self, opnum):
         x, y = self.popn(2)
         self.push(self.COMPARE_OPERATORS[opnum](x, y))
+
+    UNARY_OPERATORS = {
+        'POSITIVE' : operator.pos,
+        'NEGATIVE' : operator.neg,
+        'NOT' : operator.not_,
+        'CONVERT' : repr,
+        'INVERT' : operator.invert,
+    }
+
+    def unaryOperator(self, op):
+        x = self.pop()
+        self.push(self.UNARY_OPERATORS[op](x))
         
 class Frame:
     """The frame class containing the various attributes of the code object"""
