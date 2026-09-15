@@ -337,7 +337,7 @@ class VirtualMachine:
         f = self.frame
         if name in f.global_names:
             val = f.global_names[name]
-        elif: name in f.builtin_names:
+        elif name in f.builtin_names:
             val = f.builtin_names[name]
         else:
             raise NameError(f"global name {name} is not defined.")
@@ -401,7 +401,7 @@ class VirtualMachine:
     
     def byte_LOAD_ATTR(self, attr):
         obj = self.pop()
-        va; = getattr(obj, attr)
+        val = getattr(obj, attr)
         self.push(val)
     
     def byte_STORE_ATTR(self, name):
