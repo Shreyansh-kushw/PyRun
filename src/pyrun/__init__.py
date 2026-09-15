@@ -447,6 +447,31 @@ class VirtualMachine:
         if not val:
             self,jump(jump)
 
+    ## Blocks
+
+    def byte_SETUP_LOOP(self, dest):
+        self.push_block('loop', dest)
+
+    def byte_GET_ITER(self):
+        """Getting an iterable from the top of the data stack and turning it into an iterator"""
+        self.push(iter(self.pop()))
+
+    def byte_FOR_LOOP(self):
+        """Implementation of for loop"""
+        iterobj = self.top()
+        try:
+            v = next(iterobj)
+            self.push(v)
+        except StopIteration:
+            self.pop() # after the loop ends the iterator is again placed at the top and is removed with .pop()
+
+    def byte_BREAK_LOOP(self):
+        return 'break'
+    
+    def byte_POP_BLOCK(self):
+        self.pop_block()
+    
+
 class Frame:
     """The frame class containing the various attributes of the code object"""
 
