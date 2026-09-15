@@ -196,7 +196,12 @@ class VirtualMachine:
         return self.frame.block_stack.pop()
     
     def unwind_block(self, block):
-        """It cleans data stack back to the initial state"""
+        """It cleans data stack back to the initial state.
+        This function is ran when we need to exit the current block (loop or except block.)
+
+        Therefore, the continue keyword won't trigger the unwind as it doesn't leave the loop.
+
+        """
         if block.type == 'exception-handler':
             # The exception itself is on the stack as type, value, and traceback.
             offset = 3
@@ -219,39 +224,56 @@ class VirtualMachine:
 
         if block.type == 'loop' and why == 'continue': # its a loop and broke the flow because of continue keyword
             why = None
-            self.jump(self.return_value)
+            self.jump(self.return_value) # jumping to the continuation point in the loop -> do not take the name at face value
+            # it is being used to store where the interpreter has to return to, to continue the execution of the loop.
             return why # returning why = None here to emphasize that no extra actions is needed on this.
-        
-        self.pop_block()
-        self.unwind_block(block)
-    
+
+        # Now after we have handelled the scenerio of continue - i.e. the only scenerio that involved staying inside of the loop 
+        # (as it just jumps to another instruction, i.e. no need to pop the block or unwind)
+
+        # For all other scenerios, we eventually need to remove the block from the block stack and revert the data stack to its correct state.
+
+        self.pop_block() # removing the block
+        self.unwind_block(block) # unwinding the changes.
+
+        # handling break keyword.
         if block.type == 'loop' and why == 'break':
-            why = None
+            why = None # no further action needed
             self.jump(block.handler) # jumping to the code after the loop
             return why
         
-        if (block.type in ['setup-except', 'finally'] and why == 'exception'):
+        if (block.type in ['setup-except', 'finally'] and why == 'exception'): # means we are leaving a try/finally related block because of an exception
+
             self.push_block('exception-handler') # outsourcing handling of exception to exception handler block (created anew)
+            # why? -> because we need a new control flow region for exception handling.
+
             exctype, value, tb = self.last_exeption
             self.push(exctype, value, tb)
             self.push(exctype, value, tb)
-            why = None 
-            self.jump(block.handler)
+
+            why = None # exception is already outsourced to the exception handler so nothing more to worry about here.
+            self.jump(block.handler) # jumping to the exception handler.
             return why
         
         elif block.type == 'finally':
-            if why in ['return', 'continue']:
-                self.push(self.return_value)
+            if why in ['return', 'continue']: # finally must always run whether the flow breaks because of continue or return.
+                '''Here we are only pushing a return value in case of return or continue. 
+                   A 'break' why need not require any return value to be pushed into the data stack.'''
+                self.push(self.return_value) # adding the return value to the data stack
             
-            self.push(why)
-            why = None
-            self.jump(block.handler)
+            self.push(why) # pushing the why to the data stack too
+            # why is pushed onto the data stack so that finally block might know what caused the break in the block.
+            # it is popped off afterwards 
+
+            why = None # It is a way to postpone the unwinding to a later stage after the finally block is executes
+            # the older state of why was stored in the data stack to go back and resume the needed unwinding process for that 'why'
+            # So firstly we save the current state of things inside the data stack and then jump to the finally block.
+            self.jump(block.handler) # jumping to the finally block
             return why
         
         return why
 
         
-
 class Frame:
     """The frame class containing the various attributes of the code object"""
 
