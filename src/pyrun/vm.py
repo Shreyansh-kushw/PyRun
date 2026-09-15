@@ -175,12 +175,14 @@ class VirtualMachine:
 
         why = None # this is what is returned by the corresponding functions for the instructions
         try:
-            bytecode_func = getattr(self, f"byte_{byte_name}", None)
+            bytecode_func = getattr(self, "byte_%s" % byte_name, None)
             if bytecode_func is None:
                 if byte_name.startswith('UNARY_'):
                     self.unaryOperator(byte_name[6:])
                 elif byte_name.startswith('BINARY_'):
                     self.binaryOperator(byte_name[7:])
+                elif byte_name.startswith('INPLACE_'):
+                    self.inplaceOperator(byte_name[8:])
                 else:
                     raise VirtualMachineException(
                         "Unsupported bytecode type: {}".format(byte_name)
@@ -312,7 +314,7 @@ class VirtualMachine:
         elif name in frame.builtin_names:
             val = frame.builtin_names[name]
         else:
-            raise NameError(f"Name {name} is not defined")
+            raise NameError("Name %s is not defined" % name)
 
         self.push(val) # pushing the name value onto the data stack
 
@@ -325,7 +327,7 @@ class VirtualMachine:
             self.push(self.frame.local_names[name])
         else:
             raise UnboundLocalError(
-                f"local variable {name} referenced before assignment."
+                "local variable %s referenced before assignment." % name
             )
 
     def byte_STORE_FAST(self, name): 
@@ -340,7 +342,7 @@ class VirtualMachine:
         elif name in f.builtin_names:
             val = f.builtin_names[name]
         else:
-            raise NameError(f"global name {name} is not defined.")
+            raise NameError("global name %s is not defined." % name)
         
         self.push(val)
     
@@ -396,6 +398,36 @@ class VirtualMachine:
     def unaryOperator(self, op):
         x = self.pop()
         self.push(self.UNARY_OPERATORS[op](x))
+
+    def inplaceOperator(self, op):
+        x, y = self.popn(2)
+        if op == 'POWER':
+            x **= y
+        elif op == 'MULTIPLY':
+            x *= y
+        elif op in ['DIVIDE', 'FLOOR_DIVIDE']:
+            x //= y
+        elif op == 'TRUE_DIVIDE':
+            x /= y
+        elif op == 'MODULO':
+            x %= y
+        elif op == 'ADD':
+            x += y
+        elif op == 'SUBTRACT':
+            x -= y
+        elif op == 'LSHIFT':
+            x <<= y
+        elif op == 'RSHIFT':
+            x >>= y
+        elif op == 'AND':
+            x &= y
+        elif op == 'XOR':
+            x ^= y
+        elif op == 'OR':
+            x |= y
+        else:           # pragma: no cover
+            raise VirtualMachineError("Unknown in-place operator: %r" % op)
+        self.push(x)
 
     ## Attributes and indexing
     
@@ -456,7 +488,7 @@ class VirtualMachine:
         """Getting an iterable from the top of the data stack and turning it into an iterator"""
         self.push(iter(self.pop()))
 
-    def byte_FOR_LOOP(self):
+    def byte_FOR_ITER(self, jump):
         """Implementation of for loop"""
         iterobj = self.top()
         try:
@@ -464,7 +496,7 @@ class VirtualMachine:
             self.push(v)
         except StopIteration:
             self.pop() # after the loop ends the iterator is again placed at the top and is removed with .pop()
-            self.jump(self.frame.block_stack[-1].handler)
+            self.jump_absolute(jump)
 
     def byte_BREAK_LOOP(self):
         return 'break'
