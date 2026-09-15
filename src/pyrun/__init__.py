@@ -273,6 +273,58 @@ class VirtualMachine:
         
         return why
 
+    # Instructions
+
+    ## Stack manipulation
+    
+    def byte_LOAD_CONST(self, const):
+        self.push(const)
+    
+    def byte_POP_TOP(self):
+        return self.pop()
+    
+    ## Names:
+    def byte_LOAD_NAME(self, name):
+        frame = self.frame
+        if name in frame.local_names:
+            val = frame.local_names[name]
+        elif name in frame.global_names:
+            val = frame.global_names[name]
+        elif name in frame.builtin_names:
+            val = frame.builtin_names[name]
+        else:
+            raise NameError(f"Name {name} is not defined")
+
+        self.push(val) # pushing the name value onto the data stack
+
+    def byte_STORE_NAME(self, name):
+        self.frame.local_names[name] = self.pop() # storing the latest most value from the data stack in the variable name
+
+    def byte_LOAD_FAST(self, name):
+        """Checks for the variable name in the local namespace"""
+        if name in self.frame.local_names:
+            self.push(self.frame.local_names[name])
+        else:
+            raise UnboundLocalError(
+                f"local variable {name} referenced before assignment."
+            )
+
+    def byte_STORE_FAST(self, name): 
+        """Stores a variable and its value in the local namespace"""
+        self.frame.local_names[name] = self.pop()
+
+    def byte_LOAD_GLOBAL(self, name):
+        """Checks for the value of a variables in the global and builtin namespace"""
+        f = self.frame
+        if name in f.global_names:
+            val = f.global_names[name]
+        elif: name in f.builtin_names:
+            val = f.builtin_names[name]
+        else:
+            raise NameError(f"global name {name} is not defined.")
+        
+        self.push(val)
+    
         
 class Frame:
     """The frame class containing the various attributes of the code object"""
