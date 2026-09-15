@@ -59,6 +59,29 @@ class VirtualMachine:
     def run_frame(self):
         ...
 
+    # data stack manipulation
+    def top(self):
+        return self.frame.stack[-1]
+    
+    def pop(self):
+        return self.frame.stack.pop()
+    
+    def push(self, values):
+        self.frame.stack.extend(values)
+    
+    def popn(self, n):
+        """Pop a number of values from the data stack
+        A list of n values is returned with the deepest value first.
+        """
+
+        if n:
+            ret = self.frame.stack[-n:]
+            self.frame.stack[-n:] = []
+            return ret
+        else:
+            return []
+
+
 class Frame:
     """The frame class containing the various attributes of the code object"""
 
@@ -171,4 +194,3 @@ def make_cell(value):
     return function.__closure__[0]
     # Here as there is need for a closure inside the function, thus it would make one (because there only one dependent var between inner and outer)
     # and we can access its particular cell with index 0 - (only one cell thus index 0)
-    
