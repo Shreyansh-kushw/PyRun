@@ -245,13 +245,17 @@ The test suite thoroughly exercises the virtual machine across arithmetic, contr
 
 ## 📂 Project Directory Structure
 
-```
+```text
 PyRun/
 ├── Dockerfile                  # Container definition using official python:3.5-slim
 ├── docker-compose.yml          # Live volume mounting & container configuration
 ├── .dockerignore               # Clean build context exclusion rules
+├── .python-version             # Python version specification
 ├── pyproject.toml              # Project metadata and packaging config
+├── uv.lock                     # Dependency lockfile
 ├── README.md                   # Comprehensive documentation & architecture guide
+├── docs/
+│   └── how_python_code_runs.md # Architectural notes on Python execution pipeline, bytecode, & stack VMs
 ├── src/
 │   └── pyrun/
 │       ├── __init__.py         # Package entry point
