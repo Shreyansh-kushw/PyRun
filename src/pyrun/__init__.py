@@ -2,6 +2,22 @@ import types
 import inspect
 import dis
 import sys
+import collections
+
+Block = collections.namedtuple("Block", "type, handler, stack_height")
+
+"""
+Blocks are responsible for handling stuff like loops, exception handling etc.
+
+>>> Block(
+...     type, -> the type of block, eg. loop
+...     handler, -> the instruction code which will be run after the ending or breaking of the loop
+...     stack_height -> number of elements in data stack when the block was creation
+    )
+
+Stack height is saved because during the execution of a block, some temporary values might be added into the data stack which shall be removed afterwards.
+
+"""
 
 class VirtualMachineException(Exception):
     pass
@@ -83,7 +99,7 @@ class VirtualMachine:
             e.__traceback__ = tb
             raise e
     
-    return self.return_value
+        return self.return_value
 
 
     # data stack manipulation
@@ -171,7 +187,70 @@ class VirtualMachine:
         
         return why
 
+    # Block stack manipulation
+    def push_block(self, b_type, handler = None):
+        stack_height = len(self.frame.stack)
+        self.frame.block_stack.append(Block(b_type, handler, stack_height))
+    
+    def pop_block(self):
+        return self.frame.block_stack.pop()
+    
+    def unwind_block(self, block):
+        """It cleans data stack back to the initial state"""
+        if block.type == 'exception-handler':
+            # The exception itself is on the stack as type, value, and traceback.
+            offset = 3
+        else:
+            offset = 0
+        
+        while len(self.frame.stack) > block.stack_height + offset:
+            self.frame.stack.pop() # removing unwanted entries from the data stack
+        
+        if block.type == 'exception-handler':
+            traceback, value, exctype = self.popn(3)
+            self.last_exeption = exctype, value, traceback
+    
+    def manage_block_stack(self, why):
+        """Takes the necessary actions based on the reason for leaving the current block (why)"""
 
+        # getting the current block
+        frame = self.frame
+        block = self.frame.block_stack[-1]
+
+        if block.type == 'loop' and why == 'continue': # its a loop and broke the flow because of continue keyword
+            why = None
+            self.jump(self.return_value)
+            return why # returning why = None here to emphasize that no extra actions is needed on this.
+        
+        self.pop_block()
+        self.unwind_block(block)
+    
+        if block.type == 'loop' and why == 'break':
+            why = None
+            self.jump(block.handler) # jumping to the code after the loop
+            return why
+        
+        if (block.type in ['setup-except', 'finally'] and why == 'exception'):
+            self.push_block('exception-handler') # outsourcing handling of exception to exception handler block (created anew)
+            exctype, value, tb = self.last_exeption
+            self.push(exctype, value, tb)
+            self.push(exctype, value, tb)
+            why = None 
+            self.jump(block.handler)
+            return why
+        
+        elif block.type == 'finally':
+            if why in ['return', 'continue']:
+                self.push(self.return_value)
+            
+            self.push(why)
+            why = None
+            self.jump(block.handler)
+            return why
+        
+        return why
+
+        
 
 class Frame:
     """The frame class containing the various attributes of the code object"""
@@ -232,7 +311,7 @@ class Function:
         NOTE: when we define something like name = "Add" in default argument, it defaules to a tuple ("Add", ) within the inner workings of python
         '''
         self.func_globals = globs # the global namespace
-        self.func_locals = self._vm.frame.f_locals # the local namespace grabbed from the current frame 
+        self.func_locals = self._vm.frame.local_names # the local namespace grabbed from the current frame 
         self.__dict__ = {} # stores any other arbitrary attribute for the class (if needed)
         self.func_closure = closure # stores the function's closure, more on it later.
         self.__doc__ = code.co_consts[0] if code.co_consts else None # storing the doc string for the function
