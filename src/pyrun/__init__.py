@@ -1,5 +1,6 @@
 import types
 import inspect
+import dis
 
 class VirtualMachineException(Exception):
     pass
@@ -80,6 +81,40 @@ class VirtualMachine:
             return ret
         else:
             return []
+
+    def parse_bytes_and_args(self):
+        """Takes a bytecode instruction, checks it it has arguments, if so, then parses it and returns the final argument."""
+        f = self.frame
+        opoffset = f.last_instruction # operation off set
+        byteCode = f.code_obj.co_code[opoffset]
+        f.last_instruction += 1
+        byte_name = dis.opname[byteCode]
+
+        if byteCode >= dis.HAVE_ARGUMENT: # checking if this particular instruction requires any argument
+
+            # indexing into the bytecode
+            arg = f.code_obj.co_code[f.last_instruction : f.last_instruction + 2]
+            f.last_instruction += 2 # incrementing the instruction offset to the next one
+            arg_val = arg[0] + (arg[1] * 256) # formula to calculate the actual argument value
+
+            # checking what the argument corresponds to.
+            if byteCode in dis.hasconst:
+                args = f.code_obj.co_consts[arg_val]
+            elif byteCode in dis.hasname:
+                args = f.code_obj.co_name[arg_val]
+            elif byteCode in dis.haslocal:
+                args = f.code_obj.co_varnames[arg_val]
+            elif byteCode in dis.hasjrel: # Calculating a relative jump
+                args = f.last_instruction + arg_val # jumping forward by the argument value
+            else: # if the argument itself is to be the input argument
+                args = arg_val
+
+            argument = [args] 
+        
+        else:
+            argument = []
+        
+        return byte_name, argument
 
 
 class Frame:
