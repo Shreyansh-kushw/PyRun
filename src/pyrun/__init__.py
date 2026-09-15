@@ -152,3 +152,23 @@ class Function:
         frame = self._vm.make_frame(self.func_code, callargs, self.func_globals, {})
         # here the local_namespace = {} to ensure that each new function gets its own unique local namespace.
         return self._vm.run_frame(frame)
+
+def make_cell(value):
+    """Creates a new cell for an arbitrary closure"""
+
+    function = (lambda x: lambda: x)(value)
+    '''
+    Equivalent to
+    >>> def outer(value):
+    ...     def inner():
+    ...         return value
+    ...     return inner
+
+    Thus function becomes
+    >>> function = outer(value)
+    '''
+
+    return function.__closure__[0]
+    # Here as there is need for a closure inside the function, thus it would make one (because there only one dependent var between inner and outer)
+    # and we can access its particular cell with index 0 - (only one cell thus index 0)
+    
