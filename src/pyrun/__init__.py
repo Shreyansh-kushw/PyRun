@@ -471,6 +471,30 @@ class VirtualMachine:
     def byte_POP_BLOCK(self):
         self.pop_block()
     
+    ## Functions
+
+    def byte_MAKE_FUNCTION(self, argc): # argc - arg count
+        name = self.pop()
+        code = self.pop()
+        defaults = self.popn(argc)
+        globs = self.frame.global_names
+        fn = Function(name, code, globs, defaults, None, self)
+        self.push(fn) 
+
+    def byte_CALL_FUNCTION(self, arg):
+
+        lenKw, lenPos = divmod(arg, 256)
+        posagrs = self.popn(lenPos) # Keyword arguments are not supported here.
+
+        func = self.pop()
+        frame = self.frame
+        return_val = func(*posagrs)
+        self.push(return_val)
+
+    def byte_RETURN_VALUE(self):
+        self.return_value = self.pop() # getting the topmost value as the return value
+        return 'return'
+    
 
 class Frame:
     """The frame class containing the various attributes of the code object"""
@@ -528,7 +552,7 @@ class Function:
         self.func_name = name or code.co_name # setting the name of the function
         self.func_defaults = tuple(defaults) # this stores the default values for the arguments of the function
         '''
-        NOTE: when we define something like name = "Add" in default argument, it defaules to a tuple ("Add", ) within the inner workings of python
+        NOTE: when we define something like name = "Add" in default argument, it defaults to a tuple ("Add", ) within the inner workings of python
         '''
         self.func_globals = globs # the global namespace
         self.func_locals = self._vm.frame.local_names # the local namespace grabbed from the current frame 
