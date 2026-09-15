@@ -105,6 +105,7 @@ class VirtualMachine:
 
     # data stack manipulation
     def top(self):
+        """Returns the top value in the stack without manipulating it"""
         return self.frame.stack[-1]
     
     def pop(self):
@@ -124,6 +125,14 @@ class VirtualMachine:
             return ret
         else:
             return []
+        
+    def jump(self, jump):
+        """Jumps forward by a relative position"""
+        self.frame.last_instruction += jump
+    
+    def jump_absolute(self, jump):
+        """Jumps forward to an absolute position"""
+        self,frame.last_instruction = jump
 
     def parse_bytes_and_args(self):
         """Takes a bytecode instruction, checks it it has arguments, if so, then parses it and returns the final argument."""
@@ -426,7 +435,7 @@ class VirtualMachine:
         self.jump(jump)
     
     def byte_JUMP_ABSOLUTE(self, jump):
-        self.jump(jump)
+        self.jump_absolute(jump)
     
     def byte_POP_JUMP_IF_TRUE(self, jump):
         val = self.pop()
