@@ -1,6 +1,7 @@
 import types
 import inspect
 import dis
+import sys
 
 class VirtualMachineException(Exception):
     pass
@@ -115,6 +116,36 @@ class VirtualMachine:
             argument = []
         
         return byte_name, argument
+
+    def dispatch(self, byte_name, argument):
+        """Looks for an operation for a given instruction and executes it.
+        Exceptions has caught and set on the virtual machine class.
+        """
+
+        why = None # this is what is returned by the corrsponding functions for the instructions
+        try:
+            bytecode_func = getattr(self, f"byte_{byte_name}", None)
+            if bytecode_func is None:
+                if byte_name.startswith('UNARY_'):
+                    self.unaryOperator(byte_name[6:])
+                elif byte_name.startswith('BINARY_'):
+                    self.binaryOperator(byte_name[7:])
+                else:
+                    raise VirtualMachineException(
+                        "Unsupported bytecode type: {}".format(byte_name)
+                    )
+        
+            else:
+                why = bytecode_func(*argument) # we will pass in not the list, but rather the unpacked arguments. Because the function 
+                # doesn't expect list of arguments
+        
+        except:
+            # dealing with the exception encountered while dispatching
+            self.last_exeption = sys.exc_info()[:2] + (None,)
+            why = 'exception'
+        
+        return why
+
 
 
 class Frame:
