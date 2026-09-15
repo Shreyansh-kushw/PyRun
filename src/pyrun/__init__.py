@@ -1,3 +1,6 @@
+import types
+import inspect
+
 class VirtualMachineException(Exception):
     pass
 
@@ -84,4 +87,68 @@ class Frame:
 
         self.last_instruction = 0
         
+class Function:
+    """
+    Create a realistic function object, defining the things the interpreter expects.
+
+    Essentially this is the class that would be created when the user uses the def keyword
+    """
+    __slots__ = [ # list of allowed attributes for the objects of this class
+    'func_code', 'func_name', 'func_defaults', 'func_globals',
+    'func_locals', 'func_dict', 'func_closure', 
+    '__name__', '__dict__', '__doc__',
+    '_vm', '_frame'
+    ]        
+
+    '''
+    NOTE: All the different attributes we define inside the __slots__ list get there own dedicated storage slots.
+    Any other attribute we define will be added inside the __dict__ dictionary.
+    '''
+
+    # every class has a __dict__ attribute that is essentially a dictionary that contains all the various attributes associated with 
+    # an object of this class.
+
+    def __init__(self, name, code, globs, defaults, closure, vm):
+
+        self._vm = vm
+        self.func_code = code # this is the code object
+        self.func_name = name or code.co_name # setting the name of the function
+        self.func_defaults = tuple(defaults) # this stores the default values for the arguments of the function
+        '''
+        NOTE: when we define something like name = "Add" in default argument, it defaules to a tuple ("Add", ) within the inner workings of python
+        '''
+        self.func_globals = globs # the global namespace
+        self.func_locals = self._vm.frame.f_locals # the local namespace grabbed from the current frame 
+        self.__dict__ = {} # stores any other arbitrary attribute for the class (if needed)
+        self.func_closure = closure # stores the function's closure, more on it later.
+        self.__doc__ = code.co_consts[0] if code.co_consts else None # storing the doc string for the function
+        '''
+        NOTE- Inside every code block, code.co_consts gives a list of all the constant defined inside that code block. This includes both int, str, or float
+        Now, when we define a function, in its constant list, the first element is the doc string of the function.
+        That's why we are looking for the first element in the constants list.
+        '''
+
+        # Now we need to use the builtin python functions to help with parsing the passed arguments.
+        # To match the argument : value pairs to be exact
+
+        kw = { # keyword arguments
+            'argdefs' : self.func_defaults, # argdefs - default arguments
+        }
+
+        if closure:
+            kw['closure'] = tuple(make_cell(0) for _ in closure) 
+            # here we are just creating a dummy cell entry for each required closure because it is needed to create the function object
+            # here we do not need to worry about the legitimacy of the cell, because we are not actually going to execute the function object
+            # rather we are only using it to get the mappings of the arguments with their values.
         
+        self._func = types.FunctionType(code, globs, **kw) # basically creates a function object from the compiled raw python code, the 
+        # global variables and the keyword arguments.
+    
+    def __call__(self, *args, **kwargs):
+        """When calling a function, it creates a new frame and runs it"""
+
+        callargs = inspect.getcallargs(self._func, *args, **kwargs) # returns the mappings of the values and arguments as a dict
+
+        frame = self._vm.make_frame(self.func_code, callargs, self.func_globals, {})
+        # here the local_namespace = {} to ensure that each new function gets its own unique local namespace.
+        return self._vm.run_frame(frame)
