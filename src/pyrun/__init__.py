@@ -11,9 +11,9 @@ Block = collections.namedtuple("Block", "type, handler, stack_height")
 Blocks are responsible for handling stuff like loops, exception handling etc.
 
 >>> Block(
-...     type, -> the type of block, eg. loop
+...     type, -> the type of block, e.g. loop
 ...     handler, -> the instruction code which will be run after the ending or breaking of the loop
-...     stack_height -> number of elements in data stack when the block was creation
+...     stack_height -> number of elements in data stack when the block was created
     )
 
 Stack height is saved because during the execution of a block, some temporary values might be added into the data stack which shall be removed afterwards.
@@ -27,15 +27,15 @@ class VirtualMachine:
     """The virtual machine class"""
 
     def __init__(self):
-        self.frames = [] # call stack of rames
+        self.frames = [] # call stack of frames
         self.frame = None # current frame
-        self.return_value = None # return values
-        self.last_exeption = None # exception states
+        self.return_value = None # return value
+        self.last_exception = None # exception states
 
     def run_code(self, code, global_names = None, local_names = None):
         """Entry point for the execution of the code"""
 
-        frame = self.make_frame(code, global_names, local_names)
+        frame = self.make_frame(code, global_names=global_names, local_names=local_names)
         self.run_frame(frame)
     
     # Frame manipulation
@@ -43,7 +43,7 @@ class VirtualMachine:
         """Creates a new frame"""
 
         if global_names is not None and local_names is not None:
-            local_names = global_names
+            ...
         elif self.frames:
             global_names = self.frame.global_names
             local_names = {}
@@ -51,7 +51,7 @@ class VirtualMachine:
             global_names = local_names = {
                 '__builtins__' : __builtins__,
                 '__name__' : '__main__',
-                '__docs__' : None,
+                '__doc__' : None,
                 '__package__' : None,
             }
         local_names.update(callargs)
@@ -67,7 +67,7 @@ class VirtualMachine:
     def pop_frame(self):
         """Removes a frame from the call stack"""
 
-        self.frame.pop()
+        self.frames.pop()
 
         if self.frames:
             self.frame = self.frames[-1]
@@ -81,7 +81,7 @@ class VirtualMachine:
 
         self.push_frame(frame)
         while True:
-            byte_name. arguments = self.parse_bytes_and_args()
+            byte_name, arguments = self.parse_bytes_and_args()
 
             why = self.dispatch(byte_name, arguments)
 
@@ -95,7 +95,7 @@ class VirtualMachine:
         self.pop_frame()
 
         if why == 'exception':
-            exc, val, tb = self.last_exeption
+            exc, val, tb = self.last_exception
             e = exc(val)
             e.__traceback__ = tb
             raise e
@@ -111,7 +111,7 @@ class VirtualMachine:
     def pop(self):
         return self.frame.stack.pop()
     
-    def push(self, values):
+    def push(self, *values):
         self.frame.stack.extend(values)
     
     def popn(self, n):
@@ -132,12 +132,12 @@ class VirtualMachine:
     
     def jump_absolute(self, jump):
         """Jumps forward to an absolute position"""
-        self,frame.last_instruction = jump
+        self.frame.last_instruction = jump
 
     def parse_bytes_and_args(self):
-        """Takes a bytecode instruction, checks it it has arguments, if so, then parses it and returns the final argument."""
+        """Takes a bytecode instruction, checks if it has arguments, if so, then parses it and returns the final argument."""
         f = self.frame
-        opoffset = f.last_instruction # operation off set
+        opoffset = f.last_instruction # operation offset
         byteCode = f.code_obj.co_code[opoffset]
         f.last_instruction += 1
         byte_name = dis.opname[byteCode]
@@ -153,7 +153,7 @@ class VirtualMachine:
             if byteCode in dis.hasconst:
                 args = f.code_obj.co_consts[arg_val]
             elif byteCode in dis.hasname:
-                args = f.code_obj.co_name[arg_val]
+                args = f.code_obj.co_names[arg_val]
             elif byteCode in dis.haslocal:
                 args = f.code_obj.co_varnames[arg_val]
             elif byteCode in dis.hasjrel: # Calculating a relative jump
@@ -170,10 +170,10 @@ class VirtualMachine:
 
     def dispatch(self, byte_name, argument):
         """Looks for an operation for a given instruction and executes it.
-        Exceptions has caught and set on the virtual machine class.
+        Exceptions are caught and set on the virtual machine class.
         """
 
-        why = None # this is what is returned by the corrsponding functions for the instructions
+        why = None # this is what is returned by the corresponding functions for the instructions
         try:
             bytecode_func = getattr(self, f"byte_{byte_name}", None)
             if bytecode_func is None:
@@ -188,11 +188,11 @@ class VirtualMachine:
         
             else:
                 why = bytecode_func(*argument) # we will pass in not the list, but rather the unpacked arguments. Because the function 
-                # doesn't expect list of arguments
+                # doesn't expect a list of arguments
         
         except:
             # dealing with the exception encountered while dispatching
-            self.last_exeption = sys.exc_info()[:2] + (None,)
+            self.last_exception = sys.exc_info()[:2] + (None,)
             why = 'exception'
         
         return why
@@ -206,8 +206,8 @@ class VirtualMachine:
         return self.frame.block_stack.pop()
     
     def unwind_block(self, block):
-        """It cleans data stack back to the initial state.
-        This function is ran when we need to exit the current block (loop or except block.)
+        """It cleans the data stack back to the initial state.
+        This function is run when we need to exit the current block (loop or except block.)
 
         Therefore, the continue keyword won't trigger the unwind as it doesn't leave the loop.
 
@@ -223,7 +223,7 @@ class VirtualMachine:
         
         if block.type == 'exception-handler':
             traceback, value, exctype = self.popn(3)
-            self.last_exeption = exctype, value, traceback
+            self.last_exception = exctype, value, traceback
     
     def manage_block_stack(self, why):
         """Takes the necessary actions based on the reason for leaving the current block (why)"""
@@ -232,16 +232,16 @@ class VirtualMachine:
         frame = self.frame
         block = self.frame.block_stack[-1]
 
-        if block.type == 'loop' and why == 'continue': # its a loop and broke the flow because of continue keyword
+        if block.type == 'loop' and why == 'continue': # it's a loop and broke the flow because of continue keyword
             why = None
             self.jump(self.return_value) # jumping to the continuation point in the loop -> do not take the name at face value
             # it is being used to store where the interpreter has to return to, to continue the execution of the loop.
-            return why # returning why = None here to emphasize that no extra actions is needed on this.
+            return why # returning why = None here to emphasize that no extra action is needed on this.
 
-        # Now after we have handelled the scenerio of continue - i.e. the only scenerio that involved staying inside of the loop 
+        # Now after we have handled the scenario of continue - i.e. the only scenario that involved staying inside of the loop 
         # (as it just jumps to another instruction, i.e. no need to pop the block or unwind)
 
-        # For all other scenerios, we eventually need to remove the block from the block stack and revert the data stack to its correct state.
+        # For all other scenarios, we eventually need to remove the block from the block stack and revert the data stack to its correct state.
 
         self.pop_block() # removing the block
         self.unwind_block(block) # unwinding the changes.
@@ -257,16 +257,16 @@ class VirtualMachine:
             self.push_block('exception-handler') # outsourcing handling of exception to exception handler block (created anew)
             # why? -> because we need a new control flow region for exception handling.
 
-            exctype, value, tb = self.last_exeption
+            exctype, value, tb = self.last_exception
             self.push(exctype, value, tb)
             self.push(exctype, value, tb)
             '''
-            here we need to push the exceptions twice to the data stack because the virtual machine requires two sets ot it
+            here we need to push the exceptions twice to the data stack because the virtual machine requires two sets of it
             one for exception matching, when we do -
             >>> except Exception as e:
             it needs a set to match the caught exception with the specified one.
 
-            And other set is used to set the self.last_exception in the virtual machine
+            And the other set is used to set the self.last_exception in the virtual machine
 
             '''
 
@@ -284,7 +284,7 @@ class VirtualMachine:
             # why is pushed onto the data stack so that finally block might know what caused the break in the block.
             # it is popped off afterwards 
 
-            why = None # It is a way to postpone the unwinding to a later stage after the finally block is executes
+            why = None # It is a way to postpone the unwinding to a later stage after the finally block is executed
             # the older state of why was stored in the data stack to go back and resume the needed unwinding process for that 'why'
             # So firstly we save the current state of things inside the data stack and then jump to the finally block.
             self.jump(block.handler) # jumping to the finally block
@@ -317,7 +317,7 @@ class VirtualMachine:
         self.push(val) # pushing the name value onto the data stack
 
     def byte_STORE_NAME(self, name):
-        self.frame.local_names[name] = self.pop() # storing the latest most value from the data stack in the variable name
+        self.frame.local_names[name] = self.pop() # storing the latest value from the data stack in the variable name
 
     def byte_LOAD_FAST(self, name):
         """Checks for the variable name in the local namespace"""
@@ -333,7 +333,7 @@ class VirtualMachine:
         self.frame.local_names[name] = self.pop()
 
     def byte_LOAD_GLOBAL(self, name):
-        """Checks for the value of a variables in the global and builtin namespace"""
+        """Checks for the value of a variable in the global and builtin namespaces"""
         f = self.frame
         if name in f.global_names:
             val = f.global_names[name]
@@ -390,7 +390,7 @@ class VirtualMachine:
         'NEGATIVE' : operator.neg,
         'NOT' : operator.not_,
         'CONVERT' : repr,
-        'INVERT' : operator.invert, # equivalent of bitwaise not operator.
+        'INVERT' : operator.invert, # equivalent of bitwise not operator.
     }
 
     def unaryOperator(self, op):
@@ -414,15 +414,15 @@ class VirtualMachine:
         elements = self.popn(count) # returns a list
         self.push(elements) # pushing the list back in
     
-    def byte_BUILD_MAP(self, size): # size is the expected size of the dict, the bytecode provides it but we dont use it here.
+    def byte_BUILD_MAP(self, size): # size is the expected size of the dict, the bytecode provides it but we don't use it here.
         self.push({}) # pushing an empty dictionary.
 
     def byte_STORE_MAP(self):
-        the_map, val, key = self.popn(3) # order is imp.
+        the_map, val, key = self.popn(3) # order is important.
         the_map[key] = val
         self.push(the_map)
     
-    def byte_STORE_APPEND(self, count): # count - how far down in the stack is the list i want to append to
+    def byte_STORE_APPEND(self, count): # count - how far down in the stack is the list I want to append to
         # the value of count it would receive would account for the popping of the value
         val = self.pop()
         the_list = self.frame.stack[-count]
@@ -445,7 +445,7 @@ class VirtualMachine:
     def byte_POP_JUMP_IF_FALSE(self, jump):
         val = self.pop()
         if not val:
-            self,jump(jump)
+            self.jump(jump)
 
     ## Blocks
 
@@ -464,6 +464,7 @@ class VirtualMachine:
             self.push(v)
         except StopIteration:
             self.pop() # after the loop ends the iterator is again placed at the top and is removed with .pop()
+            self.jump(self.frame.block_stack[-1].handler)
 
     def byte_BREAK_LOOP(self):
         return 'break'
@@ -484,11 +485,11 @@ class VirtualMachine:
     def byte_CALL_FUNCTION(self, arg):
 
         lenKw, lenPos = divmod(arg, 256)
-        posagrs = self.popn(lenPos) # Keyword arguments are not supported here.
+        posargs = self.popn(lenPos) # Keyword arguments are not supported here.
 
         func = self.pop()
         frame = self.frame
-        return_val = func(*posagrs)
+        return_val = func(*posargs)
         self.push(return_val)
 
     def byte_RETURN_VALUE(self):
@@ -512,7 +513,7 @@ class Frame:
         self.prev_frame = prev_frame
 
         self.stack = [] # the data stack for this frame
-        self.block_stack = [] # the block stack for this Frame
+        self.block_stack = [] # the block stack for this frame
 
         # setting up the builtins
         if prev_frame:
@@ -533,12 +534,12 @@ class Function:
     __slots__ = [ # list of allowed attributes for the objects of this class
     'func_code', 'func_name', 'func_defaults', 'func_globals',
     'func_locals', 'func_dict', 'func_closure', 
-    '__name__', '__dict__', '__doc__',
+    '__name__', '__dict__',
     '_vm', '_frame'
     ]        
 
     '''
-    NOTE: All the different attributes we define inside the __slots__ list get there own dedicated storage slots.
+    NOTE: All the different attributes we define inside the __slots__ list get their own dedicated storage slots.
     Any other attribute we define will be added inside the __dict__ dictionary.
     '''
 
@@ -560,7 +561,7 @@ class Function:
         self.func_closure = closure # stores the function's closure, more on it later.
         self.__doc__ = code.co_consts[0] if code.co_consts else None # storing the doc string for the function
         '''
-        NOTE- Inside every code block, code.co_consts gives a list of all the constant defined inside that code block. This includes both int, str, or float
+        NOTE- Inside every code block, code.co_consts gives a list of all the constants defined inside that code block. This includes both int, str, or float
         Now, when we define a function, in its constant list, the first element is the doc string of the function.
         That's why we are looking for the first element in the constants list.
         '''
@@ -606,5 +607,5 @@ def make_cell(value):
     '''
 
     return function.__closure__[0]
-    # Here as there is need for a closure inside the function, thus it would make one (because there only one dependent var between inner and outer)
+    # Here as there is need for a closure inside the function, thus it would make one (because there is only one dependent var between inner and outer)
     # and we can access its particular cell with index 0 - (only one cell thus index 0)

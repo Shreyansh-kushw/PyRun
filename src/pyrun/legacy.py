@@ -4,7 +4,7 @@
 Building upon the foundation to add variable support -
 
 LOAD_VALUE - appends a number into the stack
-ADD_TWO_VALUES - pops the numbers one by one from the stack and append them again after adding them
+ADD_TWO_VALUES - pops the numbers one by one from the stack and appends them again after adding them
 PRINT_ANSWER - pops the result out of the stack and prints it.
 STORE_NAME - instruction for storing the value of a variable.
 LOAD_NAME - instruction for retrieving it.
@@ -26,10 +26,10 @@ LOAD_NAME - instruction for retrieving it.
         "numbers": [1, 2],
         "names":   ["a", "b"] }
 
-Now one more thing to note here is this, different instructions have argument corresponding to different things, 
+Now one more thing to note here is this, different instructions have arguments corresponding to different things, 
 like STORE_NAME, LOAD_NAME refer to the variable names 
-while LOAD_VALUES and others refer to the values inside the numbers stack. 
-thus we now need to make a function to parse the arguments based on the type of instructions we are executing
+while LOAD_VALUE and others refer to the values inside the numbers stack. 
+Thus we now need to make a function to parse the arguments based on the type of instruction we are executing
 
 """
 
@@ -40,7 +40,7 @@ class Interpreter:
         self.environment = {} # the environment dictionary that would store the different variables and their values 
 
     def STORE_NAME(self, name):
-        val = self.stack.pop() # getting the value to be assigned to the variable name by popping it out of the stack``
+        val = self.stack.pop() # getting the value to be assigned to the variable name by popping it out of the stack
         self.environment[name] = val # adding the value and name to the environment dictionary
     
     def LOAD_NAME(self, name):
@@ -61,10 +61,10 @@ class Interpreter:
         print(answer)
 
     def parse_arguments(self, instruction, argument, what_to_execute):
-        """Understanding what the argument for a instruction means."""
+        """Understanding what the argument for an instruction means."""
 
         numbers = ["LOAD_VALUE"] # list of instructions whose arguments correspond to the numbers list.
-        names = ["STORE_NAME", "LOAD_NAME"] # list of instructions whose arguments correspond to the variables names list.
+        names = ["STORE_NAME", "LOAD_NAME"] # list of instructions whose arguments correspond to the variable names list.
 
         if instruction in numbers:
             argument = what_to_execute["numbers"][argument]
@@ -74,12 +74,12 @@ class Interpreter:
         return argument 
 
         # basically we are converting the index of the corresponding argument into the definite argument the 
-        # instruction need to operate on.
+        # instruction needs to operate on.
 
     # Now we just need one more thing, something to tie everything together and run the code.
     
     def execute(self, what_to_execute):
-        """Executes the intructions"""
+        """Executes the instructions"""
 
         instructions = what_to_execute["instructions"]
         numbers = what_to_execute["numbers"]
@@ -117,7 +117,7 @@ def main():
 """
 
 Here we can see that for every instruction, there are two things required. 
-The instructions itself and an argument, for eg. telling the interpreter where to find the number to load .
+The instruction itself and an argument, e.g. telling the interpreter where to find the number to load.
 
 So our instruction set has two pieces: the instructions themselves, plus a list of constants the instructions will need.
  
