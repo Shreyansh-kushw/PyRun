@@ -58,8 +58,33 @@ class VirtualMachine:
         else: 
             self.frame = None
     
-    def run_frame(self):
-        ...
+    def run_frame(self, frame):
+        """Runs a frame until it returns something
+        Exceptions are raised and return values are returned"""
+
+        self.push_frame(frame)
+        while True:
+            byte_name. arguments = self.parse_bytes_and_args()
+
+            why = self.dispatch(byte_name, arguments)
+
+            # Dealing with block management.
+            while why and frame.block_stack:
+                why = self.manage_block_stack(why)
+            
+            if why: # something is returned
+                break
+        
+        self.pop_frame()
+
+        if why == 'exception':
+            exc, val, tb = self.last_exeption
+            e = exc(val)
+            e.__traceback__ = tb
+            raise e
+    
+    return self.return_value
+
 
     # data stack manipulation
     def top(self):
