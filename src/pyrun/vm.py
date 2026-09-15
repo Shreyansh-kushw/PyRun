@@ -126,6 +126,10 @@ class VirtualMachine:
         else:
             return []
         
+    def peek(self, n):
+        """Get a value `n` entries down in the stack, without changing the stack."""
+        return self.frame.stack[-n]
+        
     def jump(self, jump):
         """Jumps forward by a relative position"""
         self.frame.last_instruction += jump
@@ -236,7 +240,7 @@ class VirtualMachine:
 
         if block.type == 'loop' and why == 'continue': # it's a loop and broke the flow because of continue keyword
             why = None
-            self.jump(self.return_value) # jumping to the continuation point in the loop -> do not take the name at face value
+            self.jump_absolute(self.return_value) # jumping to the continuation point in the loop -> do not take the name at face value
             # it is being used to store where the interpreter has to return to, to continue the execution of the loop.
             return why # returning why = None here to emphasize that no extra action is needed on this.
 
@@ -251,7 +255,7 @@ class VirtualMachine:
         # handling break keyword.
         if block.type == 'loop' and why == 'break':
             why = None # no further action needed
-            self.jump(block.handler) # jumping to the code after the loop
+            self.jump_absolute(block.handler) # jumping to the code after the loop
             return why
         
         if (block.type in ['setup-except', 'finally'] and why == 'exception'): # means we are leaving a try/finally related block because of an exception
@@ -273,7 +277,7 @@ class VirtualMachine:
             '''
 
             why = None # exception is already outsourced to the exception handler so nothing more to worry about here.
-            self.jump(block.handler) # jumping to the exception handler.
+            self.jump_absolute(block.handler) # jumping to the exception handler.
             return why
         
         elif block.type == 'finally':
@@ -289,7 +293,7 @@ class VirtualMachine:
             why = None # It is a way to postpone the unwinding to a later stage after the finally block is executed
             # the older state of why was stored in the data stack to go back and resume the needed unwinding process for that 'why'
             # So firstly we save the current state of things inside the data stack and then jump to the finally block.
-            self.jump(block.handler) # jumping to the finally block
+            self.jump_absolute(block.handler) # jumping to the finally block
             return why
         
         return why
@@ -303,7 +307,32 @@ class VirtualMachine:
     
     def byte_POP_TOP(self):
         return self.pop()
-    
+
+    def byte_DUP_TOP(self):
+        self.push(self.top())
+
+    def byte_DUP_TOPX(self, count):
+        items = self.popn(count)
+        for i in [1, 2]:
+            self.push(*items)
+
+    def byte_DUP_TOP_TWO(self):
+        # Py3 only
+        a, b = self.popn(2)
+        self.push(a, b, a, b)
+
+    def byte_ROT_TWO(self):
+        a, b = self.popn(2)
+        self.push(b, a)
+
+    def byte_ROT_THREE(self):
+        a, b, c = self.popn(3)
+        self.push(c, a, b)
+
+    def byte_ROT_FOUR(self):
+        a, b, c, d = self.popn(4)
+        self.push(d, a, b, c)
+
     ## Names:
     def byte_LOAD_NAME(self, name):
         frame = self.frame
@@ -320,6 +349,9 @@ class VirtualMachine:
 
     def byte_STORE_NAME(self, name):
         self.frame.local_names[name] = self.pop() # storing the latest value from the data stack in the variable name
+    
+    def byte_DELETE_NAME(self, name):
+        del self.frame.local_names[name]
 
     def byte_LOAD_FAST(self, name):
         """Checks for the variable name in the local namespace"""
@@ -333,6 +365,9 @@ class VirtualMachine:
     def byte_STORE_FAST(self, name): 
         """Stores a variable and its value in the local namespace"""
         self.frame.local_names[name] = self.pop()
+    
+    def byte_DELETE_FAST(self, name):
+        del self.frame.local_names[name]
 
     def byte_LOAD_GLOBAL(self, name):
         """Checks for the value of a variable in the global and builtin namespaces"""
@@ -346,6 +381,13 @@ class VirtualMachine:
         
         self.push(val)
     
+    def byte_STORE_GLOBAL(self, name):
+        f = self.frame
+        f.global_names[name] = self.pop()
+    
+    def byte_LOAD_LOCALS(self):
+        self.push(self.frame.local_names)
+
     ## Operators
 
     BINARY_OPERATORS = {
@@ -440,31 +482,70 @@ class VirtualMachine:
         val, obj = self.popn(2)
         setattr(obj, name, val) # object to set the attribute on, the attribute name, the attribute value
 
+    def byte_DELETE_ATTR(self, name):
+        obj = self.pop()
+        delattr(obj, name)
+
+    def byte_STORE_SUBSCR(self):
+        val, obj, subscr = self.popn(3)
+        obj[subscr] = val
+
+    def byte_DELETE_SUBSCR(self):
+        obj, subscr = self.popn(2)
+        del obj[subscr]
+
     ## Building
 
     def byte_BUILD_LIST(self, count):
         elements = self.popn(count) # returns a list
         self.push(elements) # pushing the list back in
     
-    def byte_BUILD_MAP(self, size): # size is the expected size of the dict, the bytecode provides it but we don't use it here.
-        self.push({}) # pushing an empty dictionary.
+    def byte_BUILD_MAP(self, count):
+        items = self.popn(2 * count)
+        the_map = {}
+        for i in range(0, len(items), 2):
+            the_map[items[i]] = items[i + 1]
+        self.push(the_map)
+    
+    def byte_BUILD_TUPLE(self, count):
+        elts = self.popn(count)
+        self.push(tuple(elts))
 
+    def byte_BUILD_SET(self, count):
+        elts = self.popn(count)
+        self.push(set(elts))
+    
+    def byte_UNPACK_SEQUENCE(self, count):
+        seq = self.pop()
+        for x in reversed(seq):
+            self.push(x)
+    
     def byte_STORE_MAP(self):
-        the_map, val, key = self.popn(3) # order is important.
+        the_map, key, val = self.popn(3) # key was evaluated before val
         the_map[key] = val
         self.push(the_map)
     
-    def byte_STORE_APPEND(self, count): # count - how far down in the stack is the list I want to append to
+    def byte_LIST_APPEND(self, count): # count - how far down in the stack is the list I want to append to
         # the value of count it would receive would account for the popping of the value
         val = self.pop()
         the_list = self.frame.stack[-count]
         the_list.append(val)
         self.push(the_list)
 
+    def byte_SET_ADD(self, count):
+        val = self.pop()
+        the_set = self.peek(count)
+        the_set.add(val)
+    
+    def byte_MAP_ADD(self, count):
+        key, val = self.popn(2)
+        the_map = self.peek(count)
+        the_map[key] = val
+
     ## Jumps
 
     def byte_JUMP_FORWARD(self, jump):
-        self.jump(jump)
+        self.jump_absolute(jump)
     
     def byte_JUMP_ABSOLUTE(self, jump):
         self.jump_absolute(jump)
@@ -472,12 +553,26 @@ class VirtualMachine:
     def byte_POP_JUMP_IF_TRUE(self, jump):
         val = self.pop()
         if val:
-            self.jump(jump)
+            self.jump_absolute(jump)
     
     def byte_POP_JUMP_IF_FALSE(self, jump):
         val = self.pop()
         if not val:
-            self.jump(jump)
+            self.jump_absolute(jump)
+        
+    def byte_JUMP_IF_TRUE_OR_POP(self, jump):
+        val = self.top()
+        if val:
+            self.jump_absolute(jump)
+        else:
+            self.pop()
+
+    def byte_JUMP_IF_FALSE_OR_POP(self, jump):
+        val = self.top()
+        if not val:
+            self.jump_absolute(jump)
+        else:
+            self.pop()
 
     ## Blocks
 
@@ -501,6 +596,45 @@ class VirtualMachine:
     def byte_BREAK_LOOP(self):
         return 'break'
     
+    def byte_CONTINUE_LOOP(self, dest):
+        # This is a trick with the return value.
+        # While unrolling blocks, continue and return both have to preserve
+        # state as the finally blocks are executed.  For continue, it's
+        # where to jump to, for return, it's the value to return.  It gets
+        # pushed on the stack for both, so continue puts the jump destination
+        # into return_value.
+        self.return_value = dest
+        return 'continue'
+
+    def byte_SETUP_EXCEPT(self, dest):
+        self.push_block('setup-except', dest)
+
+    def byte_SETUP_FINALLY(self, dest):
+        self.push_block('finally', dest)
+
+    def byte_END_FINALLY(self):
+        v = self.pop()
+        if isinstance(v, str):
+            why = v
+            if why in ('return', 'continue'):
+                self.return_value = self.pop()
+            if why == 'silenced':       # PY3
+                block = self.pop_block()
+                assert block.type == 'except-handler'
+                self.unwind_block(block)
+                why = None
+        elif v is None:
+            why = None
+        elif issubclass(v, BaseException):
+            exctype = v
+            val = self.pop()
+            tb = self.pop()
+            self.last_exception = (exctype, val, tb)
+            why = 'reraise'
+        else:       # pragma: no cover
+            raise VirtualMachineError("Confused END_FINALLY")
+        return why
+
     def byte_POP_BLOCK(self):
         self.pop_block()
     
