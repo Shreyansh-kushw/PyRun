@@ -3,6 +3,7 @@ import inspect
 import dis
 import sys
 import collections
+import operator
 
 Block = collections.namedtuple("Block", "type, handler, stack_height")
 
@@ -324,6 +325,29 @@ class VirtualMachine:
             raise NameError(f"global name {name} is not defined.")
         
         self.push(val)
+    
+    ## Operators
+
+    BINARY_OPERATORS = {
+        'POWER': pow,
+        'MULTIPLY': operator.mul,
+        'FLOOR_DIVIDE': operator.floordiv,
+        'TRUE_DIVIDE':  operator.truediv,
+        'MODULO':   operator.mod,
+        'ADD':      operator.add,
+        'SUBTRACT': operator.sub,
+        'SUBSCR':   operator.getitem,
+        'LSHIFT':   operator.lshift,
+        'RSHIFT':   operator.rshift,
+        'AND':      operator.and_,
+        'XOR':      operator.xor,
+        'OR':       operator.or_, 
+    }
+
+    def binaryOperator(self, op):
+        x, y = self.popn(2) # getting the top 2 values to operate on
+        self.push(self.BINARY_OPERATORS[op](x,y))
+    
     
         
 class Frame:
