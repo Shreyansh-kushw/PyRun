@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  pyrun:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pyrun
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python tests/run_all_tests.py
+    stdin_open: true
+    tty: true

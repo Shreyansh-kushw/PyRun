@@ -112,34 +112,42 @@ PyRun/
 
 ## Quickstart
 
-### Prerequisites
-- Python 3.5.x (the VM bytecode layout directly parses Python 3.5 instruction formats)
+### Prerequisites & Setup Options
 
-### Running Python Scripts inside PyRun
+PyRun targets Python 3.5 bytecode structures. You can run it easily without manually installing Python 3.5:
 
-Execute any Python source file through the PyRun virtual machine using `run.py`:
-
+#### Option A: Using `uv` (Recommended — zero install)
+[uv](https://github.com/astral-sh/uv) automatically downloads and runs isolated Python 3.5 based on `.python-version`:
 ```bash
-# Run the included test script
-python src/pyrun/run.py src/pyrun/test.py
+# Run all tests
+uv run tests/run_all_tests.py
 
-# Or run any test or external script
-python src/pyrun/run.py tests/test_arithmetic.py
+# Run a specific script
+uv run python src/pyrun/run.py tests/test_comprehensive.py
 ```
 
-### Running the Test Suite
+#### Option B: Using Docker / Docker Compose
+A `Dockerfile` and `docker-compose.yml` are included with volume mounting enabled for live code reloading:
+```bash
+# Run tests with Docker Compose
+docker compose up --build
 
-A complete suite of tests is available under `tests/`.
+# Run a custom file with Docker Compose
+docker compose run --rm pyrun python src/pyrun/run.py tests/test_comprehensive.py
 
-You can run all tests sequentially with the test runner:
+# Or using plain Docker
+docker build -t pyrun .
+docker run --rm -it pyrun
+```
+
+#### Option C: Native Python 3.5
+If you already have Python 3.5 installed locally:
 
 ```bash
+# Run the test runner
 python tests/run_all_tests.py
-```
 
-Or execute individual test files with PyRun:
-
-```bash
+# Or run individual tests directly through PyRun
 python src/pyrun/run.py tests/test_arithmetic.py
 python src/pyrun/run.py tests/test_control_flow.py
 python src/pyrun/run.py tests/test_loops.py
